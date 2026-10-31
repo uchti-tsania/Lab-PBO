@@ -1,0 +1,40 @@
+// Konsep OOP: pewarisan (Admin & RegularUser extends User) dan polimorfisme (getPermissions, describe)
+export type Role = "admin" | "user";
+export interface UserData { id: string; username: string; password: string; fullName: string; email: string; role: Role; }
+
+export abstract class User {
+  constructor(public data: UserData) {}
+  abstract get roleLabel(): string;
+  abstract canManageUsers(): boolean;
+  describe(): string { return `${this.data.fullName} (${this.roleLabel})`; }
+}
+export class Admin extends User {
+  get roleLabel() { return "Administrator"; }
+  canManageUsers() { return true; }
+  override describe() { return `${super.describe()} — akses penuh`; }
+}
+export class RegularUser extends User {
+  get roleLabel() { return "Pengguna"; }
+  canManageUsers() { return false; }
+  override describe() { return `${super.describe()} — akses terbatas`; }
+}
+export const createUser = (d: UserData): User => (d.role === "admin" ? new Admin(d) : new RegularUser(d));
+
+const KEY = "crud_users", SESSION = "crud_session";
+const demo: UserData[] = [
+  { id: "1", username: "admin", password: "admin123", fullName: "Budi Admin", email: "admin@demo.id", role: "admin" },
+  { id: "2", username: "user", password: "user123", fullName: "Siti Pengguna", email: "user@demo.id", role: "user" },
+];
+export const store = {
+  all(): UserData[] {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) { localStorage.setItem(KEY, JSON.stringify(demo)); return demo; }
+    return JSON.parse(raw);
+  },
+  save(list: UserData[]) { localStorage.setItem(KEY, JSON.stringify(list)); },
+  upsert(u: UserData) { const l = store.all(); const i = l.findIndex(x => x.id === u.id); i >= 0 ? (l[i] = u) : l.push(u); store.save(l); },
+  remove(id: string) { store.save(store.all().filter(x => x.id !== id)); },
+  login(username: string, password: string) { const u = store.all().find(x => x.username === username && x.password === password); if (u) localStorage.setItem(SESSION, u.id); return u; },
+  current(): User | null { const id = localStorage.getItem(SESSION); const u = store.all().find(x => x.id === id); return u ? createUser(u) : null; },
+  logout() { localStorage.removeItem(SESSION); },
+};
